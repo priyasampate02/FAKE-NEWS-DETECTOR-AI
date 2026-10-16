@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FactCheck AI — Detect Fake News with Confidence</title>
+<meta name="description" content="AI-powered fake news detector combining a 5-model ML ensemble with live news verification.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0b0f17;
+  --bg-raised:#11161f;
+  --bg-panel:#141a25;
+  --border:#232b3a;
+  --text:#e9edf5;
+  --text-dim:#8b94a7;
+  --accent:#4f7cff;
+  --accent-dim:#2a3a66;
+  --green:#34d399;
+  --green-bg:#0f2a22;
+  --red:#fb7185;
+  --red-bg:#2a1418;
+  --amber:#fbbf24;
+  --amber-bg:#2a2210;
+  --radius:14px;
+  --radius-sm:9px;
+  --font-display:'Sora',system-ui,sans-serif;
+  --font-body:'Inter',system-ui,sans-serif;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-body);
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+
+button{font-family:inherit;}
+
+/* ===== Topbar ===== */
+.topbar{
+  position:sticky; top:0; z-index:20;
+  background:rgba(11,15,23,0.92);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);
+}
+.topbar-inner{
+  max-width:1080px; margin:0 auto;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 24px;
+}
+.brand{display:flex; align-items:center; gap:9px;}
+.brand-mark{color:var(--accent); display:flex;}
+.brand-mark svg{width:24px; height:24px;}
+.brand-name{font-family:var(--font-display); font-weight:700; font-size:1.15rem; letter-spacing:-0.01em;}
+.brand-accent{color:var(--accent);}
+
+.nav{display:flex; gap:8px;}
+.nav-btn{
+  background:var(--bg-raised); color:var(--text-dim);
+  border:1px solid var(--border); border-radius:9px;
+  padding:9px 16px; font-size:0.88rem; font-weight:600;
+  cursor:pointer; transition:background .15s,color .15s,border-color .15s;
+}
+.nav-btn:hover{color:var(--text); border-color:#34405a;}
+.nav-btn.is-active{background:var(--accent); color:#fff; border-color:var(--accent);}
+
+/* ===== Layout ===== */
+#app{max-width:1080px; margin:0 auto; padding:0 24px 80px;}
+.view{padding-top:8px;}
+
+/* ===== Home page: light theme (matches reference design) ===== */
+body.route-home{background:#1c273f;}
+body.route-home .topbar{
+  background:rgba(11, 15, 23, 0.92);
+  border-bottom:1px solid transparent;
+}
+body.route-home .nav-btn{
+  background:var(--bg-raised); color:var(--text-dim); border-color:var(--border);
+}
+body.route-home .nav-btn:hover{color:#ecf1fc; border-color:#20283a;}
+body.route-home .nav-btn.is-active{background:var(--accent); color:#fff; border-color:var(--accent);}
+body.route-home .brand-name{color:var(--text);}
+
+body.route-home [data-view="home"]{
+  position:relative;
+  margin:0 -24px; padding:0 24px;
+  overflow:hidden;
+}
+body.route-home [data-view="home"]::before,
+body.route-home [data-view="home"]::after{
+  content:"";
+  position:absolute;
+  border-radius:50%;
+  filter:blur(60px);
+  z-index:0;
+  pointer-events:none;
+}
+body.route-home [data-view="home"]::before{
+  width:520px; height:420px;
+  top:-160px; left:-120px;
+  background:radial-gradient(circle at 30% 30%, rgba(99,102,241,0.30), rgba(99,102,241,0) 70%);
+}
+body.route-home [data-view="home"]::after{
+  width:480px; height:480px;
+  top:-60px; right:-160px;
+  background:radial-gradient(circle at 60% 40%, rgba(56,189,248,0.22), rgba(56,189,248,0) 70%);
+}
+body.route-home .hero,
+body.route-home .feature-grid{
+  position:relative; z-index:1;
+}
+body.route-home .hero-eyebrow{color:#5b63d6;}
+body.route-home .hero-title{
+  color:#1a1f2b;
+  background:linear-gradient(90deg,#4338ca,#5b63d6 60%,#7c83e8);
+  -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+}
+body.route-home .hero-sub{color:#5b6478;}
+body.route-home .btn-ghost{background:#fff; color:#1a1f2b; border-color:#dfe3ee;}
+body.route-home .btn-ghost:hover{border-color:#b9c1d9;}
+body.route-home .feature-card{
+  background:var(--bg-panel); border-color:var(--border);
+  box-shadow:none;
+}
+body.route-home .feature-card h3{color:var(--text);}
+body.route-home .feature-card p{color:var(--text-dim);}
+body.route-home .site-footer{
+  background:var(--bg); border-top-color:var(--border); color:var(--text-dim);
+}
+body.route-home .site-footer strong{color:var(--text);}
+
+/* ===== Hero ===== */
+.hero{padding:72px 0 40px; text-align:left; max-width:680px;}
+.hero-eyebrow{
+  font-size:0.78rem; font-weight:600; letter-spacing:.04em; text-transform:uppercase;
+  color:var(--accent); margin:0 0 18px;
+}
+.hero-title{
+  font-family:var(--font-display); font-weight:800;
+  font-size:clamp(2.1rem,5vw,3.2rem); line-height:1.08; letter-spacing:-0.02em;
+  margin:0 0 20px;
+}
+.hero-sub{color:var(--text-dim); font-size:1.05rem; line-height:1.6; margin:0 0 32px; max-width:560px;}
+.hero-actions{display:flex; gap:12px; flex-wrap:wrap;}
+
+.feature-grid{
+  display:grid; grid-template-columns:repeat(3,1fr); gap:18px;
+  margin:24px 0 56px;
+}
+.feature-card{
+  background:var(--bg-panel); border:1px solid var(--border); border-radius:var(--radius);
+  padding:24px;
+}
+.feature-icon{font-size:1.6rem; margin-bottom:10px;}
+.feature-card h3{font-family:var(--font-display); font-size:1.02rem; margin:0 0 8px;}
+.feature-card p{color:var(--text-dim); font-size:0.9rem; line-height:1.55; margin:0;}
+
+/* ===== Buttons ===== */
+.btn{
+  border:none; border-radius:10px; padding:13px 22px;
+  font-size:0.95rem; font-weight:700; cursor:pointer;
+  transition:transform .1s, background .15s, opacity .15s;
+}
+.btn:active{transform:scale(0.98);}
+.btn-primary{background:var(--accent); color:#fff;}
+.btn-primary:hover{background:#3f6aea;}
+.btn-primary:disabled{opacity:0.55; cursor:not-allowed;}
+.btn-ghost{background:transparent; color:var(--text); border:1px solid var(--border);}
+.btn-ghost:hover{border-color:#3a4660;}
+.btn-block{width:100%; margin-top:18px;}
+
+/* ===== Page headers ===== */
+.page-head{padding:48px 0 28px;}
+.page-head h1{
+  font-family:var(--font-display); font-size:1.7rem; font-weight:700;
+  display:flex; align-items:center; gap:10px; margin:0 0 8px;
+}
+.page-icon{font-size:1.4rem;}
+.page-head p{color:var(--text-dim); margin:0; font-size:0.97rem;}
+
+/* ===== Panels / forms ===== */
+.panel{
+  background:var(--bg-panel); border:1px solid var(--border); border-radius:var(--radius);
+  padding:26px; margin-bottom:24px;
+}
+.panel-title{font-family:var(--font-display); font-size:1.02rem; margin:0 0 16px;}
+
+.field-label{display:block; font-size:0.82rem; font-weight:600; color:var(--text-dim); margin:18px 0 8px;}
+.field-label:first-of-type{margin-top:0;}
+.select,.textarea,.input{
+  width:100%; background:var(--bg-raised); border:1px solid var(--border); border-radius:var(--radius-sm);
+  color:var(--text); padding:12px 14px; font-size:0.93rem; font-family:inherit; resize:vertical;
+}
+.select:focus,.textarea:focus,.input:focus{outline:2px solid var(--accent); outline-offset:1px; border-color:var(--accent);}
+.field-meta{display:flex; justify-content:flex-end; margin-top:6px;}
+.field-meta span{font-size:0.78rem; color:var(--text-dim);}
+
+.mode-row{margin-top:20px;}
+.image-upload-row{margin-top:22px; padding-top:18px; border-top:1px dashed var(--border);}
+.image-upload-controls{display:flex; align-items:center; gap:12px; margin-top:10px; flex-wrap:wrap;}
+.btn-file{padding:10px 18px; font-size:0.86rem; cursor:pointer;}
+.image-file-name{font-size:0.84rem; color:var(--text-dim);}
+.image-upload-row .status-text{margin-top:10px;}
+.mode-toggle{display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;}
+.mode-opt{
+  flex:1; min-width:180px; background:var(--bg-raised); border:1px solid var(--border); border-radius:var(--radius-sm);
+  color:var(--text-dim); padding:11px 14px; font-size:0.87rem; font-weight:600; cursor:pointer;
+  transition:border-color .15s, color .15s, background .15s;
+}
+.mode-opt.is-active{border-color:var(--accent); color:#fff; background:var(--accent-dim);}
+
+.error-text{color:var(--red); font-size:0.86rem; margin-top:10px;}
+.status-text{font-size:0.86rem; margin-top:10px;}
+.status-text.ok{color:var(--green);}
+.status-text.err{color:var(--red);}
+
+/* ===== Result ===== */
+.result-section{margin-top:8px;}
+.section-label{font-size:0.78rem; font-weight:700; letter-spacing:.04em; color:var(--text-dim); margin:0 0 14px;}
+
+.result-banner{
+  display:flex; gap:16px; align-items:flex-start;
+  border-radius:var(--radius); padding:22px 24px; margin-bottom:20px;
+  border:1px solid var(--green); background:var(--green-bg);
+}
+.result-banner.is-fake{border-color:var(--red); background:var(--red-bg);}
+.result-banner.is-uncertain{border-color:var(--amber); background:var(--amber-bg);}
+.result-banner-icon{font-size:1.6rem; line-height:1;}
+.result-banner h2{margin:0 0 4px; font-family:var(--font-display); font-size:1.2rem;}
+.result-banner p{margin:0; color:var(--text-dim); font-size:0.92rem;}
+.result-banner strong{color:var(--text);}
+
+.confidence-caption{font-size:0.88rem; color:var(--text-dim); margin:0 0 8px;}
+.confidence-caption strong{color:var(--text);}
+.confidence-bar{height:8px; border-radius:6px; background:var(--bg-raised); overflow:hidden; margin-bottom:22px;}
+.confidence-fill{height:100%; background:var(--accent); border-radius:6px; transition:width .4s ease;}
+
+.prob-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;}
+.prob-card{background:var(--bg-panel); border:1px solid var(--border); border-radius:var(--radius); padding:20px;}
+.prob-label{font-size:0.74rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--text-dim); margin:0 0 6px;}
+.prob-value{font-family:var(--font-display); font-size:1.9rem; font-weight:800; margin:0;}
+.prob-real{color:var(--green);}
+.prob-fake{color:var(--red);}
+
+.deep-info{
+  background:var(--bg-panel); border:1px solid var(--border); border-radius:var(--radius);
+  padding:20px; margin-bottom:20px; font-size:0.9rem; line-height:1.6;
+}
+.deep-info p{margin:0 0 10px;}
+.deep-articles{display:flex; flex-direction:column; gap:8px; margin-top:10px;}
+.deep-article{
+  border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; font-size:0.84rem;
+}
+.deep-article a{color:var(--accent); text-decoration:none;}
+
+.info-note{
+  background:var(--bg-panel); border:1px solid var(--border); border-radius:var(--radius-sm);
+  padding:14px 16px; font-size:0.84rem; color:var(--text-dim); margin:0;
+}
+
+/* ===== Dashboard ===== */
+.stat-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px;}
+.stat-card{background:var(--bg-panel); border:1px solid var(--border); border-radius:var(--radius); padding:20px;}
+.stat-label{font-size:0.74rem; font-weight:700; letter-spacing:.04em; color:var(--text-dim); margin:0 0 8px;}
+.stat-value{font-family:var(--font-display); font-size:1.9rem; font-weight:800; margin:0;}
+.stat-real{color:var(--green);}
+.stat-fake{color:var(--red);}
+.stat-uncertain{color:var(--amber);}
+
+.dash-grid{display:grid; grid-template-columns:1fr 1.3fr; gap:20px; align-items:start; margin-bottom:24px;}
+
+.table-wrap{max-height:320px; overflow-y:auto;}
+.recent-table{width:100%; border-collapse:collapse; font-size:0.86rem;}
+.recent-table th{
+  text-align:left; color:var(--text-dim); font-weight:600; font-size:0.76rem;
+  text-transform:uppercase; letter-spacing:.03em; padding:0 10px 10px 0; border-bottom:1px solid var(--border);
+}
+.recent-table td{padding:10px 10px 10px 0; border-bottom:1px solid var(--border); vertical-align:middle;}
+.recent-table td.muted{color:var(--text-dim);}
+.result-pill{
+  display:inline-block; padding:3px 10px; border-radius:99px; font-size:0.74rem; font-weight:700;
+}
+.result-pill.REAL{background:var(--green-bg); color:var(--green);}
+.result-pill.FAKE{background:var(--red-bg); color:var(--red);}
+.result-pill.UNCERTAIN{background:var(--amber-bg); color:var(--amber);}
+
+.feedback-panel{margin-top:8px;}
+
+/* ===== Footer ===== */
+.site-footer{
+  border-top:1px solid var(--border); padding:24px; text-align:center;
+  color:var(--text-dim); font-size:0.83rem;
+}
+.site-footer strong{color:var(--text);}
+
+/* ===== Responsive ===== */
+@media (max-width:760px){
+  .feature-grid{grid-template-columns:1fr;}
+  .stat-grid{grid-template-columns:repeat(2,1fr);}
+  .dash-grid{grid-template-columns:1fr;}
+  .prob-grid{grid-template-columns:1fr;}
+  .topbar-inner{flex-direction:column; gap:12px; align-items:flex-start;}
+  .nav{width:100%;}
+  .nav-btn{flex:1;}
+}
+
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none !important;}
+}
+
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 2l8 3.5v6c0 5-3.4 8.2-8 10.5C7.4 19.7 4 16.5 4 11.5v-6L12 2z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 12l2.4 2.4L15.5 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <span class="brand-name">FactCheck<span class="brand-accent">AI</span></span>
+    </div>
+    <nav class="nav" aria-label="Primary">
+      <button class="nav-btn is-active" data-route="home" type="button">Home</button>
+      <button class="nav-btn" data-route="verify" type="button">Verify News</button>
+      <button class="nav-btn" data-route="dashboard" type="button">Dashboard</button>
+    </nav>
+  </div>
+</header>
+
+<main id="app">
+
+  <!-- ================= HOME ================= -->
+  <section class="view" data-view="home">
+    <div class="hero">
+      <p class="hero-eyebrow">ML ensemble · live news cross-check · 94.7% test accuracy</p>
+      <h1 class="hero-title">Detect Fake News<br>with Confidence</h1>
+      <p class="hero-sub">Paste an article or headline and get an instant, evidence-backed verdict — powered by a 5-model machine learning ensemble and real-time news verification.</p>
+      <div class="hero-actions">
+        <button class="btn btn-primary" data-route="verify" type="button">Verify a headline →</button>
+        <button class="btn btn-ghost" data-route="dashboard" type="button">View platform stats</button>
+      </div>
+    </div>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Quick Scan</h3>
+        <p>Style-based ML analysis returns a verdict in under a second — no external calls.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌐</div>
+        <h3>Live Verification</h3>
+        <p>Cross-references claims against live news using retrieval-augmented AI fact-checking.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3>Transparent Confidence</h3>
+        <p>Every verdict ships with a real vs. fake probability split, never just a label.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= VERIFY ================= -->
+  <section class="view" data-view="verify" hidden>
+    <div class="page-head">
+      <h1><span class="page-icon">🔍</span> Verify News Article</h1>
+      <p>Enter news text or pick a sample — get an instant AI-powered verdict</p>
+    </div>
+
+    <div class="panel">
+      <label class="field-label" for="sampleSelect">Try a sample first</label>
+      <select id="sampleSelect" class="select">
+        <option value="">— Select a sample to auto-fill the text box —</option>
+      </select>
+
+      <label class="field-label" for="articleText">Article text</label>
+      <textarea id="articleText" class="textarea" rows="8" placeholder="Paste a news article, claim, or headline here..."></textarea>
+      <div class="field-meta"><span id="wordCount">0 words</span></div>
+
+      <div class="image-upload-row">
+        <span class="field-label" style="margin:0;">Or check a screenshot / photo of an article</span>
+        <div class="image-upload-controls">
+          <label class="btn btn-ghost btn-file" for="imageInput">📷 Choose image</label>
+          <input id="imageInput" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/bmp" hidden>
+          <span id="imageFileName" class="image-file-name"></span>
+        </div>
+        <p id="imageStatus" class="status-text" hidden></p>
+      </div>
+
+      <div class="mode-row">
+        <span class="field-label" style="margin:0;">Verification mode</span>
+        <div class="mode-toggle" role="radiogroup" aria-label="Verification mode">
+          <button class="mode-opt is-active" data-mode="quick" type="button" role="radio" aria-checked="true">
+            ⚡ Quick (ML only)
+          </button>
+          <button class="mode-opt" data-mode="deep" type="button" role="radio" aria-checked="false">
+            🌐 Deep (AI + Live News)
+          </button>
+        </div>
+      </div>
+
+      <button id="verifyBtn" class="btn btn-primary btn-block" type="button">Verify Article</button>
+      <p id="verifyError" class="error-text" hidden></p>
+    </div>
+
+    <div id="resultSection" class="result-section" hidden>
+      <p class="section-label"><span aria-hidden="true">📊</span> RESULT</p>
+
+      <div id="resultBanner" class="result-banner">
+        <div class="result-banner-icon" id="resultIcon">✅</div>
+        <div>
+          <h2 id="resultHeading">Looks Real</h2>
+          <p id="resultSub">This article appears to be genuine news. Confidence: <strong id="resultConfInline">—</strong></p>
+        </div>
+      </div>
+
+      <p class="confidence-caption">Confidence Score: <strong id="confidenceCaption">—</strong></p>
+      <div class="confidence-bar"><div id="confidenceFill" class="confidence-fill"></div></div>
+
+      <div class="prob-grid">
+        <div class="prob-card">
+          <p class="prob-label">Real probability</p>
+          <p class="prob-value prob-real" id="realProb">—</p>
+        </div>
+        <div class="prob-card">
+          <p class="prob-label">Fake probability</p>
+          <p class="prob-value prob-fake" id="fakeProb">—</p>
+        </div>
+      </div>
+
+      <div id="deepInfo" class="deep-info" hidden>
+        <p><strong>Mode:</strong> <span id="deepMode">—</span></p>
+        <p id="deepAnalysis"></p>
+        <div id="deepArticles" class="deep-articles"></div>
+      </div>
+
+      <p class="info-note">ℹ️ Note: This model is trained on English news. It works best with political or general news articles written in English.</p>
+    </div>
+  </section>
+
+  <!-- ================= DASHBOARD ================= -->
+  <section class="view" data-view="dashboard" hidden>
+    <div class="page-head">
+      <h1><span class="page-icon">📊</span> Dashboard</h1>
+      <p>Track all the news articles analyzed by FactCheck AI</p>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <p class="stat-label">TOTAL CHECKED</p>
+        <p class="stat-value" id="statTotal">—</p>
+      </div>
+      <div class="stat-card">
+        <p class="stat-label"><span aria-hidden="true">✅</span> REAL</p>
+        <p class="stat-value stat-real" id="statReal">—</p>
+      </div>
+      <div class="stat-card">
+        <p class="stat-label"><span aria-hidden="true">❌</span> FAKE</p>
+        <p class="stat-value stat-fake" id="statFake">—</p>
+      </div>
+      <div class="stat-card">
+        <p class="stat-label"><span aria-hidden="true">⚠️</span> UNCERTAIN</p>
+        <p class="stat-value stat-uncertain" id="statUncertain">—</p>
+      </div>
+    </div>
+
+    <div class="dash-grid">
+      <div class="panel">
+        <h3 class="panel-title">Prediction Distribution</h3>
+        <canvas id="distChart" height="220"></canvas>
+      </div>
+      <div class="panel">
+        <h3 class="panel-title">Recent Checks</h3>
+        <div class="table-wrap">
+          <table class="recent-table">
+            <thead><tr><th>News Preview</th><th>Result</th></tr></thead>
+            <tbody id="recentTableBody">
+              <tr><td colspan="2" class="muted">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel feedback-panel">
+      <h3 class="panel-title"><span aria-hidden="true">💬</span> Send Feedback</h3>
+      <label class="field-label" for="fbName">Your name</label>
+      <input id="fbName" class="input" type="text" placeholder="Enter your name">
+      <label class="field-label" for="fbMessage">Message</label>
+      <textarea id="fbMessage" class="textarea" rows="4" placeholder="Share your thoughts about this project..."></textarea>
+      <button id="fbSubmit" class="btn btn-primary" type="button">Submit</button>
+      <p id="fbStatus" class="status-text" hidden></p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <p><strong>FactCheck AI</strong> &nbsp;|&nbsp; ML Ensemble + RAG Verification &nbsp;|&nbsp; v8.0</p>
+</footer>
+
+<script>
+// ===== Config =====
+const API_BASE = ""; // same-origin: served by FastAPI alongside the API
+
+// ===== Sample articles (mirrors the dropdown in the reference screenshots) =====
+const SAMPLES = [
+  {
+    label: "✅ Real — Federal Reserve rate hike",
+    text: "The Federal Reserve raised interest rates by 25 basis points on Wednesday, marking its third increase this year. Fed Chair said the decision reflects continued strength in the labor market and persistent inflation pressures. Economists at major banks largely expected the move, with markets reacting modestly. The central bank signaled it would continue to monitor economic data closely before deciding on further increases."
+  },
+  {
+    label: "✅ Real — Biden infrastructure bill",
+    text: "President Biden signed a $1.2 trillion infrastructure bill into law on Monday, allocating funding for roads, bridges, broadband expansion, and clean energy projects across the country. The bipartisan bill passed the Senate with support from both parties after months of negotiation. Officials said construction on priority projects would begin within the next fiscal year."
+  },
+  {
+    label: "❌ Fake — Bleach cures cancer hoax",
+    text: "BREAKING: Scientists confirm that drinking bleach cures cancer, government hiding this miracle cure from the public for decades! Big Pharma doesn't want you to know this simple trick that doctors are too scared to mention. Share this before it gets deleted! Thousands of people are already curing themselves at home with this one weird method hospitals refuse to use."
+  },
+  {
+    label: "❌ Fake — Clinton arrest hoax",
+    text: "URGENT: Hillary Clinton arrested at midnight in secret FBI raid, mainstream media refuses to report it!!! Anonymous insider sources confirm she was taken into custody and the story is being suppressed by the deep state. Wake up people, they don't want you to see this. Forward to everyone before they take this page down!"
+  }
+];
+
+// ===== State =====
+let currentMode = "quick";
+let lastVerify = null; // { text, prediction, confidence, ... } for feedback prefill
+
+// ===== Routing =====
+const views = document.querySelectorAll(".view");
+const navBtns = document.querySelectorAll(".nav-btn[data-route]");
+
+function goTo(route) {
+  views.forEach(v => v.hidden = v.dataset.view !== route);
+  navBtns.forEach(b => b.classList.toggle("is-active", b.dataset.route === route));
+  document.body.classList.toggle("route-home", route === "home");
+  window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+  if (route === "dashboard") loadDashboard();
+}
+
+document.querySelectorAll("[data-route]").forEach(el => {
+  el.addEventListener("click", () => goTo(el.dataset.route));
+});
+
+// ===== Verify page: samples =====
+const sampleSelect = document.getElementById("sampleSelect");
+SAMPLES.forEach((s, i) => {
+  const opt = document.createElement("option");
+  opt.value = i;
+  opt.textContent = s.label;
+  sampleSelect.appendChild(opt);
+});
+sampleSelect.addEventListener("change", () => {
+  if (sampleSelect.value === "") return;
+  articleText.value = SAMPLES[Number(sampleSelect.value)].text;
+  updateWordCount();
+});
+
+// ===== Verify page: textarea =====
+const articleText = document.getElementById("articleText");
+const wordCount = document.getElementById("wordCount");
+function updateWordCount() {
+  const words = articleText.value.trim().split(/\s+/).filter(Boolean).length;
+  wordCount.textContent = `${words} word${words === 1 ? "" : "s"}`;
+}
+articleText.addEventListener("input", updateWordCount);
+
+// ===== Verify page: image upload (OCR) =====
+const imageInput = document.getElementById("imageInput");
+const imageFileName = document.getElementById("imageFileName");
+const imageStatus = document.getElementById("imageStatus");
+
+imageInput.addEventListener("change", async () => {
+  const file = imageInput.files[0];
+  imageStatus.hidden = true;
+  if (!file) return;
+
+  imageFileName.textContent = file.name;
+  imageStatus.textContent = "Reading text from image…";
+  imageStatus.className = "status-text";
+  imageStatus.hidden = false;
+
+  const formData = new FormData();
+  formData.append("image", file);
+
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/extract-image-text`, {
+      method: "POST",
+      body: formData
+    });
+    const data = await safeJson(res);
+
+    if (!res.ok) {
+      throw new Error(data?.detail || "Could not read this image.");
+    }
+    if (!data.success) {
+      imageStatus.textContent = data.message || "Couldn't find readable text in this image.";
+      imageStatus.className = "status-text err";
+      imageStatus.hidden = false;
+      return;
+    }
+
+    articleText.value = data.text;
+    updateWordCount();
+    imageStatus.textContent = `Extracted ${data.word_count} word${data.word_count === 1 ? "" : "s"} from the image — review the text below, then verify it.`;
+    imageStatus.className = "status-text ok";
+    imageStatus.hidden = false;
+  } catch (err) {
+    imageStatus.textContent = err.message || "Could not read this image. Try a clearer photo or screenshot.";
+    imageStatus.className = "status-text err";
+    imageStatus.hidden = false;
+  } finally {
+    imageInput.value = ""; // allow re-selecting the same file later
+  }
+});
+
+// ===== Verify page: mode toggle =====
+document.querySelectorAll(".mode-opt").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".mode-opt").forEach(b => {
+      b.classList.remove("is-active");
+      b.setAttribute("aria-checked", "false");
+    });
+    btn.classList.add("is-active");
+    btn.setAttribute("aria-checked", "true");
+    currentMode = btn.dataset.mode;
+  });
+});
+
+// ===== Verify page: submit =====
+const verifyBtn = document.getElementById("verifyBtn");
+const verifyError = document.getElementById("verifyError");
+const resultSection = document.getElementById("resultSection");
+
+verifyBtn.addEventListener("click", runVerify);
+
+async function runVerify() {
+  const text = articleText.value.trim();
+  verifyError.hidden = true;
+
+  if (text.split(/\s+/).filter(Boolean).length < 3 || text.length < 10) {
+    verifyError.textContent = "Please enter at least a few words to analyze.";
+    verifyError.hidden = false;
+    return;
+  }
+
+  verifyBtn.disabled = true;
+  verifyBtn.textContent = currentMode === "quick" ? "Analyzing…" : "Cross-checking live news…";
+
+  try {
+    if (currentMode === "quick") {
+      const res = await fetch(`${API_BASE}/api/v1/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+      if (!res.ok) throw new Error((await safeJson(res))?.detail || "Analysis failed.");
+      const data = await res.json();
+      renderQuickResult(data, text);
+    } else {
+      const res = await fetch(`${API_BASE}/api/v1/smart-verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+      if (!res.ok) {
+        const detail = (await safeJson(res))?.detail || "Verification failed.";
+        if (res.status === 503 && /GROQ_API_KEY/i.test(detail)) {
+          throw new Error("Deep mode needs a free Groq API key to run. Add GROQ_API_KEY to your .env file, or switch to Quick mode below — it works with no setup.");
+        }
+        throw new Error(detail);
+      }
+      const data = await res.json();
+      renderDeepResult(data, text);
+    }
+  } catch (err) {
+    verifyError.textContent = err.message || "Something went wrong. Please try again.";
+    verifyError.hidden = false;
+    resultSection.hidden = true;
+  } finally {
+    verifyBtn.disabled = false;
+    verifyBtn.textContent = "Verify Article";
+  }
+}
+
+async function safeJson(res) {
+  try { return await res.json(); } catch { return null; }
+}
+
+function renderQuickResult(data, text) {
+  const isReal = data.prediction === "REAL";
+  const confidence = data.confidence; // 0-100
+  const uncertain = confidence < 60;
+
+  paintResultBanner({
+    state: uncertain ? "uncertain" : (isReal ? "real" : "fake"),
+    heading: uncertain ? "Uncertain" : (isReal ? "Looks Real" : "Looks Fake"),
+    sub: uncertain
+      ? `The model isn't confident either way. Confidence: ${confidence.toFixed(1)}%`
+      : `This article appears to be ${isReal ? "genuine" : "fake"} news. Confidence: ${confidence.toFixed(1)}%`,
+    confidence,
+    realProb: data.real_probability * 100,
+    fakeProb: data.fake_probability * 100
+  });
+
+  document.getElementById("deepInfo").hidden = true;
+  resultSection.hidden = false;
+  resultSection.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  lastVerify = { text, prediction: data.prediction, confidence };
+}
+
+function renderDeepResult(data, text) {
+  const verdict = data.verdict || "UNVERIFIABLE";
+  const isReal = verdict === "LIKELY_TRUE";
+  const isFake = verdict === "LIKELY_FALSE";
+  const confidence = data.confidence ?? 50;
+
+  let state = "uncertain", heading = "Uncertain", sub = "The AI could not reach a confident verdict.";
+  if (isReal) { state = "real"; heading = "Looks Real"; sub = `Live news and writing-style analysis support this. Confidence: ${confidence}%`; }
+  else if (isFake) { state = "fake"; heading = "Looks Fake"; sub = `Live news and writing-style analysis contradict this. Confidence: ${confidence}%`; }
+  else { sub = `Verdict: ${verdict.replace("_", " ")}. Confidence: ${confidence}%`; }
+
+  const credScore = data.credibility_score ?? 0.5;
+  paintResultBanner({
+    state, heading, sub,
+    confidence,
+    realProb: credScore * 100,
+    fakeProb: (1 - credScore) * 100
+  });
+
+  const deepInfo = document.getElementById("deepInfo");
+  document.getElementById("deepMode").textContent =
+    data.mode === "rag" ? "AI + Live News (RAG)" : "Standalone AI analysis (no live news found)";
+  document.getElementById("deepAnalysis").textContent = data.analysis || "";
+
+  const articlesEl = document.getElementById("deepArticles");
+  articlesEl.innerHTML = "";
+  const articles = data.web?.articles || [];
+  articles.slice(0, 4).forEach(a => {
+    const div = document.createElement("div");
+    div.className = "deep-article";
+    const link = a.url ? `<a href="${a.url}" target="_blank" rel="noopener">${escapeHtml(a.title || a.url)}</a>` : escapeHtml(a.title || "");
+    div.innerHTML = `${link} <span style="color:var(--text-dim)">— ${escapeHtml(a.source || "")}</span>`;
+    articlesEl.appendChild(div);
+  });
+  deepInfo.hidden = false;
+
+  resultSection.hidden = false;
+  resultSection.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  lastVerify = { text, prediction: isFake ? "FAKE" : "REAL", confidence };
+}
+
+function escapeHtml(str) {
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function paintResultBanner({ state, heading, sub, confidence, realProb, fakeProb }) {
+  const banner = document.getElementById("resultBanner");
+  banner.classList.remove("is-fake", "is-uncertain");
+  const icon = document.getElementById("resultIcon");
+  if (state === "fake") { banner.classList.add("is-fake"); icon.textContent = "❌"; }
+  else if (state === "uncertain") { banner.classList.add("is-uncertain"); icon.textContent = "⚠️"; }
+  else { icon.textContent = "✅"; }
+
+  document.getElementById("resultHeading").textContent = heading;
+
+  // Rebuild resultSub's full markup (including the nested <strong>) in a single
+  // write, rather than writing innerHTML and then separately trying to find a
+  // child element it just replaced — that ordering caused a null reference.
+  const subWithBoldConfidence = escapeHtml(sub).replace(
+    /Confidence: ([\d.]+%)/,
+    'Confidence: <strong id="resultConfInline">$1</strong>'
+  );
+  document.getElementById("resultSub").innerHTML = subWithBoldConfidence;
+  document.getElementById("confidenceCaption").textContent = `${confidence.toFixed(1)}%`;
+  document.getElementById("confidenceFill").style.width = `${Math.min(100, Math.max(0, confidence))}%`;
+  document.getElementById("realProb").textContent = `${realProb.toFixed(1)}%`;
+  document.getElementById("fakeProb").textContent = `${fakeProb.toFixed(1)}%`;
+}
+
+// ===== Dashboard =====
+let distChart = null;
+let dashboardLoaded = false;
+
+async function loadDashboard() {
+  try {
+    const [statsRes, recentRes] = await Promise.all([
+      fetch(`${API_BASE}/api/v1/community-stats`),
+      fetch(`${API_BASE}/api/v1/recent-checks?limit=10`)
+    ]);
+    const stats = await statsRes.json();
+    const recent = await recentRes.json();
+
+    if (stats.available) {
+      const b = stats.breakdown;
+      document.getElementById("statTotal").textContent = stats.total_analyses;
+      document.getElementById("statReal").textContent = b.real;
+      document.getElementById("statFake").textContent = b.fake;
+      document.getElementById("statUncertain").textContent = b.uncertain ?? 0;
+      renderDistChart(b.fake, b.real, b.uncertain ?? 0);
+    } else {
+      document.getElementById("statTotal").textContent = "0";
+      document.getElementById("statReal").textContent = "0";
+      document.getElementById("statFake").textContent = "0";
+      document.getElementById("statUncertain").textContent = "0";
+      renderDistChart(0, 0, 0);
+    }
+
+    const tbody = document.getElementById("recentTableBody");
+    tbody.innerHTML = "";
+    const checks = recent.available ? recent.checks : [];
+    if (checks.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="2" class="muted">No checks yet — run a verification to see it here.</td></tr>`;
+    } else {
+      checks.forEach(c => {
+        const tr = document.createElement("tr");
+        const preview = (c.preview || "").slice(0, 60) + ((c.preview || "").length > 60 ? "…" : "");
+        tr.innerHTML = `<td>${escapeHtml(preview)}</td><td><span class="result-pill ${c.result}">${c.result}</span></td>`;
+        tbody.appendChild(tr);
+      });
+    }
+    dashboardLoaded = true;
+  } catch (err) {
+    console.error("Dashboard load failed", err);
+  }
+}
+
+function renderDistChart(fake, real, uncertain) {
+  const ctx = document.getElementById("distChart");
+  if (distChart) distChart.destroy();
+  distChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: ["FAKE", "REAL", "UNCERTAIN"],
+      datasets: [{
+        data: [fake, real, uncertain],
+        backgroundColor: ["#fb7185", "#34d399", "#fbbf24"],
+        borderRadius: 6,
+        maxBarThickness: 64
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: "#8b94a7" }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: "#8b94a7", precision: 0 }, grid: { color: "#232b3a" } }
+      }
+    }
+  });
+}
+
+// ===== Feedback =====
+document.getElementById("fbSubmit").addEventListener("click", async () => {
+  const name = document.getElementById("fbName").value.trim();
+  const message = document.getElementById("fbMessage").value.trim();
+  const status = document.getElementById("fbStatus");
+  status.hidden = true;
+
+  if (message.length < 20) {
+    status.textContent = "Please write a bit more (at least 20 characters) so it can be saved as feedback.";
+    status.className = "status-text err";
+    status.hidden = false;
+    return;
+  }
+
+  // The backend's /feedback endpoint records model-correction feedback; we map
+  // the free-text dashboard message onto it using the last verification if
+  // available, so the message is preserved as the "reason".
+  const base = lastVerify || { text: message, prediction: "REAL" };
+  const payload = {
+    text: lastVerify ? lastVerify.text : `[General feedback] ${message}`,
+    model_prediction: base.prediction,
+    user_correction: base.prediction,
+    reason: name ? `${name}: ${message}` : message
+  };
+
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/feedback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error((await safeJson(res))?.detail || "Could not submit feedback.");
+    status.textContent = "Thanks — your feedback has been recorded!";
+    status.className = "status-text ok";
+    status.hidden = false;
+    document.getElementById("fbName").value = "";
+    document.getElementById("fbMessage").value = "";
+  } catch (err) {
+    status.textContent = err.message || "Could not submit feedback. Please try again.";
+    status.className = "status-text err";
+    status.hidden = false;
+  }
+});
+
+// ===== Init =====
+goTo("home");
+
+</script>
+</body>
+</html>

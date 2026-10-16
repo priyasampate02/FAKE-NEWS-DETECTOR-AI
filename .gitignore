@@ -1,0 +1,86 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+env/
+
+# --- SECURITY: Never commit secrets ---
+.env
+.secrets.toml
+*.key
+*.pem
+
+# Large data files
+data/*.csv
+data_new/*.csv
+data_new/*.h5
+data_new/liar/*.tsv
+*.h5
+
+# Keep directory structure
+!data/.gitkeep
+!data_new/.gitkeep
+
+# Model files (large binary artifacts)
+models/*.keras
+models/pipeline*.joblib
+models/v_*/
+
+# Keep essential model files for deployment
+!models/model.joblib
+!models/tfidf.joblib
+!models/scaler.joblib
+!models/ood_centroid.npy
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/*.log
+logs/*.png
+logs/*.csv
+training_log.txt
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Build
+/dist/
+build/
+!landing-page/dist/
+*.egg-info/
+
+# Temporary files
+*.tmp
+*.bak
+
+# Database (local dev only)
+*.db
+
+# Docker
+.docker/
+
+# Debug / scratch scripts — never commit these
+test_gemini_key.py
+scratch_*.py
+logs/
+.agents/
+*.zip
+portfolio/
+report/team_role_delegation.md
